@@ -226,7 +226,7 @@ specifying how many uuids to generate and returns them in a list.
     })
 
     
-For more code examples check out the code in tests/test-column-order.js and tests/test-misc.js.
+For more code examples check out the code in test/test-column-order.js and test/test-misc.js.
 
 ## Author
 
