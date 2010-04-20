@@ -1,0 +1,20 @@
+<Keyspace Name="CassandraNodeBridgeTest">
+  <ColumnFamily Name="TestColumnFamily_UTF8" CompareWith="UTF8Type" />
+  <ColumnFamily Name="TestColumnFamily_TimeUUID" CompareWith="TimeUUIDType" />
+  <ColumnFamily Name="TestSuperColumnFamily_UTF8_UTF8" ColumnType="Super" 
+	  CompareWith="UTF8Type" CompareSubcolumnsWith="UTF8Type" />
+  <ColumnFamily Name="TestSuperColumnFamily_TimeUUID_UTF8" ColumnType="Super" 
+   	CompareWith="TimeUUIDType" CompareSubcolumnsWith="UTF8Type" />
+  <ColumnFamily Name="TestSuperColumnFamily_UTF8_TimeUUID" ColumnType="Super" 
+    CompareWith="UTF8Type" CompareSubcolumnsWith="TimeUUIDType" />
+  <ColumnFamily Name="TestSuperColumnFamily_TimeUUID_TimeUUID" ColumnType="Super" 
+    CompareWith="TimeUUIDType" CompareSubcolumnsWith="TimeUUIDType" />
+  <ColumnFamily Name="TestColumnFamily_Long" CompareWith="LongType" />
+  <ColumnFamily Name="TestSuperColumnFamily_UTF8_Long" ColumnType="Super"
+    CompareWith="UTF8Type" CompareSubcolumnsWith="LongType"/>
+
+  <ReplicaPlacementStrategy>org.apache.cassandra.locator.RackUnawareStrategy</ReplicaPlacementStrategy>    
+  <ReplicationFactor>1</ReplicationFactor>
+  <EndPointSnitch>org.apache.cassandra.locator.EndPointSnitch</EndPointSnitch>
+ </Keyspace>
+
