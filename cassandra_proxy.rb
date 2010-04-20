@@ -687,9 +687,9 @@ class CassandraProxy < EventMachine::Connection
   end
   
   def self.describe_keyspace(args) 
-    keyspace = args['keyspace'].first 
+    keyspace = args['keyspace'].first
     if @@keyspaces[keyspace]
-      @@keyspaces[keyspace].to_json
+      @@keyspaces[keyspace]
     else
       raise "Could not find keyspace #{keyspace}."
     end
