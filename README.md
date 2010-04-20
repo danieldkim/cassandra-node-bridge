@@ -100,7 +100,7 @@ After creating the request, add listeners for the "success" and "error" events:
         sys.puts("Got column " + column.name + ":" + column.value);
       })
     })
-    request.addListener("mess", function(error) {
+    request.addListener("error", function(mess) {
       sys.puts("Error from cassandra-node-client: " + mess)
     })
     
