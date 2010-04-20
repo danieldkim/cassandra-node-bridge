@@ -488,7 +488,10 @@ class CassandraProxy < EventMachine::Connection
       puts "received data: #{data}" if @@verbose
       begin
         method, query_str = data.split /[?$]/
-        args = CGI::parse query_str if query_str
+        if query_str
+          query_str.chomp!
+          args = CGI::parse query_str 
+        end
         self.class.send(method.chomp, args)
       rescue => e
         # send error to callback as result
@@ -681,6 +684,15 @@ class CassandraProxy < EventMachine::Connection
     execute_query do |client| 
       client.remove keyspace, key, column_path, timestamp, consistency_level 
     end    
+  end
+  
+  def self.describe_keyspace(args) 
+    keyspace = args['keyspace'].first 
+    if @@keyspaces[keyspace]
+      @@keyspaces[keyspace].to_json
+    else
+      raise "Could not find keyspace #{keyspace}."
+    end
   end
   
   def self.execute_query    
