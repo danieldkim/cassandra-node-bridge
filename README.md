@@ -75,10 +75,10 @@ around Thrift's lack of inheritance, structures are *collapsed* and
 [duck typing](http://en.wikipedia.org/wiki/Duck_typing) is used to 
 differentiate between different kinds of structures.
 
-For example, where a _ColumnOrSuperColumn_ would appear in the API CNB 
-expects/returns an object that looks like either a _Column_ *or* a 
-_SuperColumn_.  Going further, instead of a _Mutation_, CNB expects/returns an
-object that looks like a _Deletion_, _Column_, or _SuperColumn_.
+For example, where a **ColumnOrSuperColumn** would appear in the API CNB 
+expects/returns an object that looks like either a **Column** *or* a 
+**SuperColumn**.  Going further, instead of a **Mutation**, CNB expects/returns
+an object that looks like a **Deletion**, **Column**, or **SuperColumn**.
 
 #### Requests -- hash-based argument passing and event listeners
 
@@ -124,9 +124,9 @@ Then you can use <code>ConsistencyLevel.ONE</code>,
 
 #### UUID's and Longs
 
-CNB supports the use of _TimeUUIDType_ and _LongType_ for column comparisons.  
+CNB supports the use of **TimeUUIDType** and **LongType** for column comparisons.  
 
-If _TimeUUIDType_ is specified in the 
+If **TimeUUIDType** is specified in the 
 [storage configuration](http://wiki.apache.org/cassandra/StorageConfiguration)
 for a column, CNB will automatically deserialize the string representation of a
 UUID it receives before storing it in Cassandra.  Conversely, it will 
@@ -136,7 +136,7 @@ the client uses the string representation.  As a convenience, CNB also provides
 a <code>get\_uuids</code> method which will generate time-based UUID's for you
 to use in your application.
 
-If _LongType_ is specified for a column, Javascript numbers can be used for
+If **LongType** is specified for a column, Javascript numbers can be used for
 the column name.  CNB takes care of marshalling the number into a Java long
 (network byte order) before storing it in Cassandra, and unmarshalling it
 after pulling it out and before sending it to the client.
@@ -148,9 +148,9 @@ to the number of microseconds since the epoch at the time the request is
 processed by the proxy.  All timestamps specified as "auto" within a single 
 request will resolve to the same value.
 
-If you're using auto-generated timestamps _anywhere_ in your application, you
-should use them consistently *everywhere*.  The auto-generated timestamps have
-a _microsecond_ level precision.  If you mix timestamps that you generate in
+If you're using auto-generated timestamps **anywhere** in your application, you
+should use them consistently **everywhere**.  The auto-generated timestamps have
+a **microsecond** level precision.  If you mix timestamps that you generate in
 Javascript with a millisecond precision, you'll get some unexpected results.
 For example, if you issue a <code>remove</code> call with an auto-generated
 timestamp, then subsequently issue a batch insert with a Javascript-generated
@@ -171,12 +171,12 @@ are supported by CNB:
 * remove
 
 Additionally, a <code>get\_uuids</code> method can be used to generate UUID's.
-<code>get\_uuids</code> takes an optional _count_ argument (defaults to 1)
+<code>get\_uuids</code> takes an optional **count** argument (defaults to 1)
 specifying how many uuids to generate and returns them in a list.
  
 #### Examples
 
-_get\_slice_:
+**get_slice**:
 
     var request = cassandra.create_request("get_slice", {
       keyspace: "MyKeyspace", key: "my_key", 
@@ -190,7 +190,7 @@ _get\_slice_:
       })      
     })
 
-_get\_uuids_:
+**get_uuids**:
 
     var request = cassandra.create_request("get_uuids")
     request.addListener("success", function(result) {
@@ -198,7 +198,7 @@ _get\_uuids_:
     })
 
 
-_batch\_mutate_:
+**batch_mutate**:
 
     var request = cassandra.create_request("batch_mutate", {
       keyspace: "MyKeyspace", 
