@@ -221,7 +221,7 @@ specifying how many uuids to generate and returns them in a list.
         }
       }      
     })
-    mutate_request.addListener("success", function(result) {
+    request.addListener("success", function(result) {
       sys.puts("Update succeeded. auto-generated timestamp: " + result);
     })
 
