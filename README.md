@@ -10,6 +10,10 @@ client access, and I didn't feel like writing a low-level thrift client in
 Javascript, CNB uses a proxy implemented on
 [EventMachine](http://rubyeventmachine.com/) which uses the Ruby thrift client.
 
+Cassandra-Node Bridge is a low-level library and mirrors the Cassandra API very
+closely. For something a bit higher level, check-out [Active
+Columns](http://github.com/danieldkim/active-columns).
+
 ## Requirements
 
 * Ruby 1.8.7
