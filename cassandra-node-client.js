@@ -11,6 +11,15 @@ exports.ConsistencyLevel = ConsistencyLevel = {
 exports.create = function (port, host, logger) {
   host = host || 'localhost'
   logger = logger || no_op_logger
+  
+  function stringify_numbers(obj) {
+    for (var k in obj) {
+      var val = obj[k];
+      if (typeof val == 'number') obj[k] = val.toString();
+      else if (typeof val == 'object') stringify_numbers(val);
+    }
+  }
+  
   function call_proxy(method, arg_hash, event_emitter) {
     var connection = require('net').createConnection(port, host)
     var result_data  = ''
@@ -19,6 +28,9 @@ exports.create = function (port, host, logger) {
     }
     for (k in arg_hash) {
       if (typeof arg_hash[k] == "object") {
+        // it's exceedingly unlikely that an input mutation_map will be re-used
+        // so we're just going to modify it rather than create a copy ...
+        stringify_numbers(arg_hash[k]);
         arg_hash[k] = JSON.stringify(arg_hash[k])
       }
     }
