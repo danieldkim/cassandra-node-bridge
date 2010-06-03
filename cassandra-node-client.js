@@ -30,7 +30,9 @@ exports.create = function (port, host, logger) {
       if (typeof arg_hash[k] == "object") {
         // it's exceedingly unlikely that an input mutation_map will be re-used
         // so we're just going to modify it rather than create a copy ...
-        stringify_numbers(arg_hash[k]);
+        if (k == 'mutation_map') {
+          stringify_numbers(arg_hash[k]);          
+        }
         arg_hash[k] = JSON.stringify(arg_hash[k])
       }
     }
