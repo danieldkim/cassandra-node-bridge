@@ -46,6 +46,7 @@ $ ruby cassandra_proxy.rb --help
 Usage: ruby cassandra_proxy.rb [options]
     -h, --host HOST                  Cassandra server host
     -p, --port PORT                  Cassandra server port
+    -x, --proxy_port PORT            Cassandra proxy server port
     -t, --threadpool-size SIZE       size of threadpool (maximum concurrency)
     -v, --verbose                    verbose (print request/response data)
 </pre>

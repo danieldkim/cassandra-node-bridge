@@ -708,6 +708,10 @@ class CassandraProxy < EventMachine::Connection
   
   @@cassandra_host = "127.0.0.1"
   @@cassandra_port = 9160
+  @@proxy_port = 10000
+  def self.proxy_port
+    @@proxy_port
+  end
   @@keyspaces = {}
   @@verbose = false
   
@@ -718,6 +722,9 @@ class CassandraProxy < EventMachine::Connection
     end
     opts.on("-p", "--port PORT", "Cassandra server port") do |p|
       @@cassandra_port = p
+    end
+    opts.on("-x", "--proxy_port PORT", "Cassandra proxy server port") do |x|
+      @@proxy_port = x
     end
     opts.on("-t", "--threadpool-size SIZE", "size of threadpool (maximum concurrency)") do |size|
       EventMachine.threadpool_size = size.to_i
@@ -741,7 +748,7 @@ class CassandraProxy < EventMachine::Connection
 end
 
 EM.run {
-  EM.start_server "0.0.0.0", 10000, CassandraProxy
+  EM.start_server "0.0.0.0", CassandraProxy.proxy_port, CassandraProxy
   puts "Cassandra proxy started."
 }
 
