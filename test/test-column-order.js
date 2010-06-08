@@ -11,94 +11,142 @@ var sys = require('sys')
 var _ = require('underscore')._
 var test_KS = "CassandraNodeBridgeTest"
 
-var test_helpers = require('./test-helpers')
-test_helpers.set_logger(logger);
+var TestSuite = require('async_testing').TestSuite;
 
-test_helpers.run_async_tests_sequentially([
-  ["Test insert", test_insert], 
-  ["Test column order with TimeUUID column comparisons", 
-    test_column_order_TimeUUID], 
-  ["Test column order with UTF8 column comparisons", 
-    test_column_order_UTF8], 
-  ["Test column order with UTF8 column comparisons, UTF8 subcolumn comparisons", 
-    test_column_order_UTF8_UTF8], 
-  ["Test column order with UTF8 column comparisons, TimeUUID subcolumn comparisons", 
-    test_column_order_UTF8_TimeUUID], 
-  ["Test column order with TimeUUID column comparisons, UTF8 subcolumn comparisons", 
-    test_column_order_TimeUUID_UTF8], 
-  ["Test column order with TimeUUID column comparisons, TimeUUID subcolumn comparisons", 
-    test_column_order_TimeUUID_TimeUUID],
-  ["Test column order with Long column comparisons", 
-    test_column_order_TimeUUID], 
-  ["Test column order with UTF8 column comparisons, Long subcolumn comparisons", 
-    test_column_order_UTF8_Long], 
-]);
+var insertTestsSuite = new TestSuite();
 
-
-function test_insert(test_done) {
-  var test_col_ts;
-  function clean_up(clean_up_done) {
-    if (!test_col_ts) {
-      clean_up_done();
-      return;
-    }
-    var mut_map = {test_key: {TestColumnFamily_UTF8:[{timestamp:test_col_ts, predicate:{column_names:["test_col"]}}]}}
-    var mutate_request = cassandra.create_request("batch_mutate", {
-      keyspace: test_KS, mutation_map: mut_map
-    }, { 
-      success: function() {
-          clean_up_done();
-        },
-      error: function(mess) {
-       assert.ok(false, "Error trying to clean up after test_insert(): " + mess)
-      } 
-    })     
+insertTestsSuite.teardown(function(teardown_done) {
+  var test_col_ts = this.test_col_ts;
+  if (!test_col_ts) {
+    teardown_done();
+    return;
   }
-  var clean_up_after = test_helpers.clean_up_wrapper_factory(clean_up, test_done).clean_up_after
-  
+  var mut_map = {test_key: {TestColumnFamily_UTF8:[{timestamp:test_col_ts, predicate:{column_names:["test_col"]}}]}}
+  var mutate_request = cassandra.create_request("batch_mutate", {
+    keyspace: test_KS, mutation_map: mut_map
+  }, { 
+    success: function() {
+        teardown_done();
+      },
+    error: function(mess) {
+     assert.ok(false, "Error trying to clean up after test_insert(): " + mess)
+    } 
+  })     
+});
+
+insertTestsSuite.addTests({
+  "Test insert": test_insert, 
+});
+
+var columnOrderSuite = new TestSuite();
+
+columnOrderSuite.teardown(function(teardown_done) {
+  if (!this.insert_succeeded) {
+    teardown_done();
+    return;
+  }
+  var key = this.key;
+  var columns_insert_order = this.columns_insert_order;
+  var insert_ts = this.insert_ts;
+  var column_parent = this.column_parent;
+  var mut_map = {}
+  mut_map[key] = {}
+  var mutations;
+  var column_names = [];
+  if (columns_insert_order[0].columns) { // super columns
+    mutations = []
+    columns_insert_order.forEach(function(col) {
+      var subcolumn_names = _.map(col.columns, function(c) {return c.name})
+      column_names.push(col.name)
+      mutations.push({timestamp:insert_ts, super_column: col.name,
+                      predicate:{column_names:subcolumn_names}})
+    })
+  } else {
+    var column_names = _.map(columns_insert_order, function(c) {return c.name})
+    mutations = [{timestamp:insert_ts, predicate:{column_names:column_names}}]
+  }
+  mut_map[key][column_parent.column_family] = mutations      
+  var mutate_request = cassandra.create_request("batch_mutate", {
+    keyspace:test_KS, mutation_map: mut_map
+  })
+  mutate_request.addListener("success", function() {
+    teardown_done();
+  })
+  mutate_request.addListener("error", function(mess) {
+    assert.ok(false, "Error trying to clean up after _test_column_order():" + mess)
+  })
+  mutate_request.send()
+});
+
+columnOrderSuite.addTests({
+  "Test column order with TimeUUID column comparisons":  
+    test_column_order_TimeUUID, 
+  "Test column order with UTF8 column comparisons":  
+    test_column_order_UTF8, 
+  "Test column order with UTF8 column comparisons, UTF8 subcolumn comparisons":  
+    test_column_order_UTF8_UTF8, 
+  "Test column order with UTF8 column comparisons, TimeUUID subcolumn comparisons":  
+    test_column_order_UTF8_TimeUUID, 
+  "Test column order with TimeUUID column comparisons, UTF8 subcolumn comparisons":  
+    test_column_order_TimeUUID_UTF8, 
+  "Test column order with TimeUUID column comparisons, TimeUUID subcolumn comparisons":  
+    test_column_order_TimeUUID_TimeUUID,
+  "Test column order with Long column comparisons":  
+    test_column_order_TimeUUID, 
+  "Test column order with UTF8 column comparisons, Long subcolumn comparisons": 
+    test_column_order_UTF8_Long, 
+});
+
+require('async_testing').runSuites({  
+  "Insert tests":  insertTestsSuite,
+  "Column order tests":  columnOrderSuite
+});
+
+function test_insert(assert, finished, test) {
   var request = cassandra.create_request("insert", {
     keyspace: test_KS, key:"test_key", 
     column_path: {column_family:"TestColumnFamily_UTF8",column:"test_col"}, 
     value: "test_val", timestamp: "auto"
-  })
+  });
   request.addListener("success", function(result) {
     var get_request = cassandra.create_request("get", {
       keyspace: test_KS, key: "test_key",
       column_path: {column_family: "TestColumnFamily_UTF8", column: "test_col"}
-    })
-    get_request.addListener("success", clean_up_after(function(col) {
-      test_col_ts = col.timestamp;
-      logger.debug("test_col_ts:" + test_col_ts)
+    });
+    get_request.addListener("success", function(col) {
+      test.test_col_ts = col.timestamp;
+      logger.debug("test_col_ts:" + test.test_col_ts)
       assert.equal("test_col", col.name, "Unexpected column name")
       assert.equal("test_val", col.value, "Unexpected column value")
       logger.info("test_insert() successful.")
-    }))
-    get_request.addListener("error", clean_up_after(function(mess) { 
+      finished();
+    });
+    get_request.addListener("error", function(mess) { 
       assert.ok(false, "Error getting column: " + mess) 
-    }))
+    });
     get_request.send()
   })
-  request.addListener("error", clean_up_after(function(mess) { 
+  request.addListener("error", function(mess) { 
     assert.ok(false, "Error inserting: " + mess) 
-  }))
+  });
   request.send()
 }
 
-function test_column_order_UTF8(test_done) {  
+function test_column_order_UTF8(assert, finished, test) {  
   var c1 = {name: 'efb4e334-3bc2-11df-9292-eb7b240ef4c6', value: "c1"},
       c2 = {name: '0e1daf22-3c72-11df-9629-cb5c46c044d3', value: "c2"};
   _test_column_order("test_key", {column_family:"TestColumnFamily_UTF8"}, 
-    [c1, c2], [c2, c1], null, test_done)   
+    [c1, c2], [c2, c1], null, assert, finished, test)   
 }
 
-function test_column_order_TimeUUID(test_done) {
+function test_column_order_TimeUUID(assert, finished, test) {
   var c1 = {name: 'efb4e334-3bc2-11df-9292-eb7b240ef4c6', value: "c1"},
       c2 = {name: '0e1daf22-3c72-11df-9629-cb5c46c044d3', value: "c2"};
   _test_column_order("test_key", {column_family:"TestColumnFamily_TimeUUID"}, 
-    [c2, c1], [c1, c2], null, test_done)       
+    [c2, c1], [c1, c2], null, assert, finished, test)       
 }
 
-function test_column_order_UTF8_UTF8(test_done) {
+function test_column_order_UTF8_UTF8(assert, finished, test) {
   var c1 = {name: 'efb4e334-3bc2-11df-9292-eb7b240ef4c6', 
             columns: [{name: 'de64c338-3c8a-11df-8951-b1971952eb7e', value: 'c1c1'},
                       {name: '2ae37812-3c8b-11df-88d7-22322cd185d3', value: 'c1c2'}]},
@@ -109,10 +157,10 @@ function test_column_order_UTF8_UTF8(test_done) {
   subcolumns_expected_orders[c1.name] = c1.columns.reverse()
   subcolumns_expected_orders[c2.name] = c2.columns.reverse()
   _test_column_order("test_key", {column_family:"TestSuperColumnFamily_UTF8_UTF8"}, 
-    [c1, c2], [c2, c1], subcolumns_expected_orders, test_done)   
+    [c1, c2], [c2, c1], subcolumns_expected_orders, assert, finished, test)   
 }
 
-function test_column_order_UTF8_TimeUUID(test_done) {
+function test_column_order_UTF8_TimeUUID(assert, finished, test) {
   var c1 = {name: 'efb4e334-3bc2-11df-9292-eb7b240ef4c6', 
             columns: [{name: '2ae37812-3c8b-11df-88d7-22322cd185d3', value: 'c1c1'},
                       {name: 'de64c338-3c8a-11df-8951-b1971952eb7e', value: 'c1c2'}]},
@@ -123,10 +171,10 @@ function test_column_order_UTF8_TimeUUID(test_done) {
   subcolumns_expected_orders[c1.name] = c1.columns.reverse()
   subcolumns_expected_orders[c2.name] = c2.columns.reverse()
   _test_column_order("test_key", {column_family:"TestSuperColumnFamily_UTF8_TimeUUID"}, 
-    [c1, c2], [c2, c1], subcolumns_expected_orders, test_done)   
+    [c1, c2], [c2, c1], subcolumns_expected_orders, assert, finished, test)   
 }
 
-function test_column_order_TimeUUID_UTF8(test_done) {
+function test_column_order_TimeUUID_UTF8(assert, finished, test) {
   var c1 = {name: '0e1daf22-3c72-11df-9629-cb5c46c044d3', 
             columns: [{name: 'efb4e622-3bc2-11df-8cc1-4a0b67bf84f7', value: 'c2c1'},
                       {name: '91c12e72-3d07-11df-9eb1-30610603492e', value: 'c2c2'}]},
@@ -137,10 +185,10 @@ function test_column_order_TimeUUID_UTF8(test_done) {
   subcolumns_expected_orders[c1.name] = c1.columns.reverse()
   subcolumns_expected_orders[c2.name] = c2.columns.reverse()
   _test_column_order("test_key", {column_family:"TestSuperColumnFamily_TimeUUID_UTF8"}, 
-    [c1, c2], [c2, c1], subcolumns_expected_orders, test_done)   
+    [c1, c2], [c2, c1], subcolumns_expected_orders, assert, finished, test)   
 }
 
-function test_column_order_TimeUUID_TimeUUID(test_done) {
+function test_column_order_TimeUUID_TimeUUID(assert, finished, test) {
   var c1 = {name: '0e1daf22-3c72-11df-9629-cb5c46c044d3', 
             columns: [{name: '91c12e72-3d07-11df-9eb1-30610603492e', value: 'c2c1'},
                       {name: 'efb4e622-3bc2-11df-8cc1-4a0b67bf84f7', value: 'c2c2'}]},
@@ -151,17 +199,17 @@ function test_column_order_TimeUUID_TimeUUID(test_done) {
   subcolumns_expected_orders[c1.name] = c1.columns.reverse()
   subcolumns_expected_orders[c2.name] = c2.columns.reverse()
   _test_column_order("test_key", {column_family:"TestSuperColumnFamily_TimeUUID_TimeUUID"}, 
-    [c1, c2], [c2, c1], subcolumns_expected_orders, test_done)   
+    [c1, c2], [c2, c1], subcolumns_expected_orders, assert, finished, test)   
 }
 
-function test_column_order_Long(test_done) {
+function test_column_order_Long(assert, finished, test) {
   var c1 = {name: 1, value: "c1"},
       c2 = {name: 2, value: "c2"};
   _test_column_order("test_key", {column_family:"TestColumnFamily_Long"}, 
-    [c2, c1], [c1, c2], null, test_done)       
+    [c2, c1], [c1, c2], null, assert, finished, test)       
 }
 
-function test_column_order_UTF8_Long(test_done) {
+function test_column_order_UTF8_Long(assert, finished, test) {
   var c1 = {name: 'efb4e334-3bc2-11df-9292-eb7b240ef4c6', 
             columns: [{name: 2, value: 'c1c1'},
                       {name: 1, value: 'c1c2'}]},
@@ -172,13 +220,15 @@ function test_column_order_UTF8_Long(test_done) {
   subcolumns_expected_orders[c1.name] = c1.columns.reverse()
   subcolumns_expected_orders[c2.name] = c2.columns.reverse()
   _test_column_order("test_key", {column_family:"TestSuperColumnFamily_UTF8_Long"}, 
-    [c1, c2], [c2, c1], subcolumns_expected_orders, test_done)   
+    [c1, c2], [c2, c1], subcolumns_expected_orders, assert, finished, test)   
 }
 
-function _test_column_order(key, column_parent, columns_insert_order, columns_expected_order, subcolumns_expected_orders, test_done) {
-
-  var insert_succeeded = false;
-  var insert_ts = Date.now()
+function _test_column_order(key, column_parent, columns_insert_order, columns_expected_order, subcolumns_expected_orders, assert, finished, test) {
+  
+  test.key = key;
+  test.column_parent = column_parent;
+  test.insert_succeeded = false;
+  test.insert_ts = insert_ts = Date.now();
   columns_insert_order.forEach(function(c) {
     if (c.columns) {
       c.columns.forEach(function(sc) { sc.timestamp = insert_ts; })
@@ -186,40 +236,7 @@ function _test_column_order(key, column_parent, columns_insert_order, columns_ex
       c.timestamp = insert_ts;
     }
   })
-  function clean_up(clean_up_done) {
-    if (!insert_succeeded) {
-      clean_up_done();
-      return;
-    }
-    var mut_map = {}
-    mut_map[key] = {}
-    var mutations;
-    var column_names = []
-    if (columns_insert_order[0].columns) { // super columns
-      mutations = []
-      columns_insert_order.forEach(function(col) {
-        var subcolumn_names = _.map(col.columns, function(c) {return c.name})
-        column_names.push(col.name)
-        mutations.push({timestamp:insert_ts, super_column: col.name,
-                        predicate:{column_names:subcolumn_names}})
-      })
-    } else {
-      var column_names = _.map(columns_insert_order, function(c) {return c.name})
-      mutations = [{timestamp:insert_ts, predicate:{column_names:column_names}}]
-    }
-    mut_map[key][column_parent.column_family] = mutations      
-    var mutate_request = cassandra.create_request("batch_mutate", {
-      keyspace:test_KS, mutation_map: mut_map
-    })
-    mutate_request.addListener("success", function() {
-      clean_up_done();
-    })
-    mutate_request.addListener("error", function(mess) {
-      assert.ok(false, "Error trying to clean up after _test_column_order():" + mess)
-    })
-    mutate_request.send()
-  }
-  var clean_up_after = test_helpers.clean_up_wrapper_factory(clean_up, test_done).clean_up_after
+  test.columns_insert_order = columns_insert_order;
 
   var mutations;
   if (column_parent.super_column) {
@@ -245,8 +262,8 @@ function _test_column_order(key, column_parent, columns_insert_order, columns_ex
         }
       }
     })
-    get_slice_request.addListener("success", clean_up_after(function(result) {
-      insert_succeeded = true;
+    get_slice_request.addListener("success", function(result) {
+      test.insert_succeeded = true;
       assert.equal(columns_expected_order.length, result.length, 
                    "Did not get back expected number of columns.")
       for (var i = 0; i < result.length; i++ ) {
@@ -259,16 +276,17 @@ function _test_column_order(key, column_parent, columns_insert_order, columns_ex
                        "Subcolumn results not sorted properly, was expecting " + subcolumns_expected_order[j].name)
         }
       }
-      logger.info("_test_column_order: get_slice() returned uuid's in expected order.")
-    }))
-    get_slice_request.addListener("error", clean_up_after(function(mess) {
+      logger.info("_test_column_order: get_slice() returned uuid's in expected order.");
+      finished();
+    });
+    get_slice_request.addListener("error", function(mess) {
       assert.ok(false, "Error getting test columns: " + mess)              
-    }))
+    });
     get_slice_request.send()
   })
-  mutate_request.addListener("error", clean_up_after(function(mess) {
+  mutate_request.addListener("error", function(mess) {
     assert.ok(false, "Error adding columns: " + mess)
-  }))
+  });
   mutate_request.send()
   
 }
