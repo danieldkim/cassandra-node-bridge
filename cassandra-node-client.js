@@ -119,6 +119,10 @@ exports.create = function (port, host, logger) {
       return request;
     },
      
+    describe_keyspace: function(keyspace) {
+      call_proxy("describe_keyspace", {keyspace: keyspace}, callback);
+    },
+    
     get_uuids: function() {
       var count, callback;
       if (arguments.length == 1) {

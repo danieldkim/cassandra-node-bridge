@@ -84,7 +84,7 @@ function setup(test) {
   mut_map[key2]["TestSuperColumnFamily_UTF8_UTF8"] = mutations_for_columns(columns2);
   cassandra.batch_mutate(keyspace, mut_map, ConsistencyLevel.ONE, function(err, result) {
     if (err) {
-      assert.ok(false, "Error adding columns: " + mess)
+      assert.ok(false, "Error adding columns: " + err)
       return;
     }
     test();
@@ -109,7 +109,7 @@ function teardown(clean_up_done) {
 
   cassandra.batch_mutate(keyspace, mut_map, ConsistencyLevel.ONE, function(err) {
     if (err) {
-      assert.ok(false, "Error trying to clean up:" + mess);
+      assert.ok(false, "Error trying to clean up:" + err);
     }
     clean_up_done();
   });
@@ -150,7 +150,7 @@ function _test_remove(assert, finished, column_path, column_parent) {
     ConsistencyLevel.ONE, function(err, result) {
 
     if (err) {
-      assert.ok(false, "Error removing key: " + mess)              
+      assert.ok(false, "Error removing key: " + err)              
       return;
     }
     look_for_it();
@@ -162,7 +162,7 @@ function _test_remove(assert, finished, column_path, column_parent) {
       {slice_range: {start:'',finish:'',reversed: false,count:100}},
       ConsistencyLevel.ONE, function(err, result) {
       if (err) {
-        assert.ok(false, "Error getting slice: " + mess)              
+        assert.ok(false, "Error getting slice: " + err)              
         return;
       }
       assert.equal(0, result.length, "Was expecting no results, but got " + result.length);
@@ -177,7 +177,7 @@ function test_get_super_column_count(assert, finished, test) {
   cassandra.get_count(keyspace, key1, column_parent, 
     ConsistencyLevel.ONE, function(err, result) {
     if (err) {
-      assert.ok(false, "Error getting super column count: " + mess);
+      assert.ok(false, "Error getting super column count: " + err);
       return;
     }
     assert.equal(2, result);
@@ -191,7 +191,7 @@ function test_get_subcolumn_count(assert, finished, test) {
   cassandra.get_count(keyspace, key1, column_parent, 
     ConsistencyLevel.ONE, function(err, result) {
     if (err) {
-      assert.ok(false, "Error getting subcolumn count: " + mess);
+      assert.ok(false, "Error getting subcolumn count: " + err);
       return;
     }
     assert.equal(1, result);
@@ -204,7 +204,7 @@ function test_get_subcolumn_count(assert, finished, test) {
     cassandra.get_count(keyspace, key1, column_parent,
       ConsistencyLevel.ONE, function(err, result) {
       if (err) {
-        assert.ok(false, "Error getting subcolumn count: " + mess)              
+        assert.ok(false, "Error getting subcolumn count: " + err)              
         return;
       }
       assert.equal(2, result);
@@ -220,7 +220,7 @@ function test_multiget_slice(assert, finished, test) {
     {slice_range:{start:'', finish:'', reversed:false, count:5}},
     ConsistencyLevel.ONE, function(err, result) {
     if (err) {
-      assert.ok(false, "Error requesting multiget_slice: " + mess);
+      assert.ok(false, "Error requesting multiget_slice: " + err);
       return;
     }
     assert.ok(result[key1], "Result did not contain " + key1);

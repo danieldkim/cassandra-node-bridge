@@ -25,7 +25,7 @@ insertTestsSuite.teardown(function(teardown_done) {
   }
   var mut_map = {test_key: {TestColumnFamily_UTF8:[{timestamp:test_col_ts, predicate:{column_names:["test_col"]}}]}}
   cassandra.batch_mutate(test_KS, mut_map, ConsistencyLevel.ONE, function(err) {
-    if (err) assert.ok(false, "Error trying to clean up after test_insert(): " + mess);
+    if (err) assert.ok(false, "Error trying to clean up after test_insert(): " + err);
     teardown_done();
   })     
 });
@@ -63,7 +63,7 @@ columnOrderSuite.teardown(function(teardown_done) {
   }
   mut_map[key][column_parent.column_family] = mutations      
   cassandra.batch_mutate(test_KS, mut_map, ConsistencyLevel.ONE, function(err) {
-    if (err) assert.ok(false, "Error trying to clean up after _test_column_order():" + mess);
+    if (err) assert.ok(false, "Error trying to clean up after _test_column_order():" + err);
     teardown_done();
   });
 });
@@ -97,14 +97,14 @@ function test_insert(assert, finished, test) {
     {column_family:"TestColumnFamily_UTF8",column:"test_col"}, 
     "test_val", "auto", ConsistencyLevel.ONE, function(err, result) {
     if (err) {
-      assert.ok(false, "Error inserting: " + mess); 
+      assert.ok(false, "Error inserting: " + err); 
       return;
     }
     cassandra.get(test_KS, "test_key",
     {column_family: "TestColumnFamily_UTF8", column: "test_col"},
     ConsistencyLevel.ONE, function(err, col) {
       if (err) {
-        assert.ok(false, "Error getting column: " + mess); 
+        assert.ok(false, "Error getting column: " + err); 
         return;
       }
       test.test_col_ts = col.timestamp;
@@ -235,7 +235,7 @@ function _test_column_order(key, column_parent, columns_insert_order, columns_ex
   mut_map[key][column_parent.column_family] = mutations
   cassandra.batch_mutate(test_KS, mut_map, ConsistencyLevel.ONE, function(err, result) {
     if (err) {
-      assert.ok(false, "Error adding columns: " + mess);
+      assert.ok(false, "Error adding columns: " + err);
       return; 
     }
     assert.equal('number', typeof result, "batch_mutate did not return a number (timestamp)");
@@ -247,7 +247,7 @@ function _test_column_order(key, column_parent, columns_insert_order, columns_ex
       }
     }, ConsistencyLevel.ONE, function(err, result) {
       if (err) {
-        assert.ok(false, "Error getting test columns: " + mess);
+        assert.ok(false, "Error getting test columns: " + err);
         return;
       }
       test.insert_succeeded = true;
