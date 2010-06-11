@@ -82,16 +82,13 @@ function setup(test) {
   mut_map[key2] = {}
   mut_map[key1]["TestSuperColumnFamily_UTF8_UTF8"] = mutations_for_columns(columns1);
   mut_map[key2]["TestSuperColumnFamily_UTF8_UTF8"] = mutations_for_columns(columns2);
-  var mutate_request = cassandra.create_request("batch_mutate", {
-    keyspace: keyspace, mutation_map: mut_map
-  })
-  mutate_request.addListener("success", function(result) {
+  cassandra.batch_mutate(keyspace, mut_map, ConsistencyLevel.ONE, function(err, result) {
+    if (err) {
+      assert.ok(false, "Error adding columns: " + mess)
+      return;
+    }
     test();
-  })
-  mutate_request.addListener("error", function(mess) {
-    assert.ok(false, "Error adding columns: " + mess)
-  })
-  mutate_request.send();
+  });
 }
 
 function teardown(clean_up_done) {
@@ -109,17 +106,13 @@ function teardown(clean_up_done) {
   mut_map[key2] = {}
   mut_map[key1]["TestSuperColumnFamily_UTF8_UTF8"] = mutations_for_columns(columns1)
   mut_map[key2]["TestSuperColumnFamily_UTF8_UTF8"] = mutations_for_columns(columns2)
-       
-  var request = cassandra.create_request("batch_mutate", {
-    keyspace:keyspace, mutation_map: mut_map
-  })
-  request.addListener("success", function() {
+
+  cassandra.batch_mutate(keyspace, mut_map, ConsistencyLevel.ONE, function(err) {
+    if (err) {
+      assert.ok(false, "Error trying to clean up:" + mess);
+    }
     clean_up_done();
-  })
-  request.addListener("error", function(mess) {
-    assert.ok(false, "Error trying to clean up:" + mess)
-  })
-  request.send()
+  });
 }  
 
 function test_remove_row(assert, finished, test) {
@@ -152,89 +145,84 @@ function test_remove_column(assert, finished, test) {
 }
 
 function _test_remove(assert, finished, column_path, column_parent) {
-  var request = cassandra.create_request("remove", {
-    keyspace: keyspace, key: key1, column_path: column_path, timestamp: Date.now()
-  })
-  request.addListener("success", function(result) {
+
+  cassandra.remove(keyspace, key1, column_path, Date.now(), 
+    ConsistencyLevel.ONE, function(err, result) {
+
+    if (err) {
+      assert.ok(false, "Error removing key: " + mess)              
+      return;
+    }
     look_for_it();
-  })
-  request.addListener("error", function(mess) {
-    assert.ok(false, "Error removing key: " + mess)              
-  })
-  request.send();
+
+  });
   
   function look_for_it() {
-    var request = cassandra.create_request("get_slice", {
-      keyspace: keyspace, key: key1, column_parent: column_parent, 
-      predicate: {slice_range: {start:'',finish:'',reversed: false,count:100}}
-    });
-    request.addListener("success", function(result) {
+    cassandra.get_slice(keyspace, key1, column_parent, 
+      {slice_range: {start:'',finish:'',reversed: false,count:100}},
+      ConsistencyLevel.ONE, function(err, result) {
+      if (err) {
+        assert.ok(false, "Error getting slice: " + mess)              
+        return;
+      }
       assert.equal(0, result.length, "Was expecting no results, but got " + result.length);
       logger.info("get_slice returned no results as expected.")
       finished();
-    })
-    request.addListener("error", function(mess) {
-      assert.ok(false, "Error getting slice: " + mess)              
     });
-    request.send();    
   }  
 }
 
 function test_get_super_column_count(assert, finished, test) {
   var column_parent =  {column_family:"TestSuperColumnFamily_UTF8_UTF8"};
-  var request = cassandra.create_request("get_count", {
-    keyspace: keyspace, key: key1, column_parent: column_parent
-  })
-  request.addListener("success", function(result) {
+  cassandra.get_count(keyspace, key1, column_parent, 
+    ConsistencyLevel.ONE, function(err, result) {
+    if (err) {
+      assert.ok(false, "Error getting super column count: " + mess);
+      return;
+    }
     assert.equal(2, result);
     logger.info("get_count returned correct super column count.")
     finished();
   });
-  request.addListener("error", function(mess) {
-    assert.ok(false, "Error getting super column count: " + mess)              
-  });
-  request.send();
 }
 
 function test_get_subcolumn_count(assert, finished, test) {
   var column_parent = { column_family: "TestSuperColumnFamily_UTF8_UTF8", super_column: "k1sc1" }
-  var request = cassandra.create_request("get_count", {
-    keyspace: keyspace, key: key1, column_parent: column_parent
-  })
-  request.addListener("success", function(result) {
+  cassandra.get_count(keyspace, key1, column_parent, 
+    ConsistencyLevel.ONE, function(err, result) {
+    if (err) {
+      assert.ok(false, "Error getting subcolumn count: " + mess);
+      return;
+    }
     assert.equal(1, result);
     logger.info("get_count returned correct subcolumn count for sc1.")
     test_sc2();
-  })
-  request.addListener("error", function(mess) {
-    assert.ok(false, "Error getting subcolumn count: " + mess)              
-  })
-  request.send();
+  });
   
   function test_sc2() {
     var column_parent = { column_family: "TestSuperColumnFamily_UTF8_UTF8", super_column: "k1sc2" }
-    var request = cassandra.create_request("get_count", {
-      keyspace: keyspace, key: key1, column_parent: column_parent
-    });
-    request.addListener("success", function(result) {
+    cassandra.get_count(keyspace, key1, column_parent,
+      ConsistencyLevel.ONE, function(err, result) {
+      if (err) {
+        assert.ok(false, "Error getting subcolumn count: " + mess)              
+        return;
+      }
       assert.equal(2, result);
       logger.info("get_count return correct subcolumn count for sc2.");
       finished();
     });
-    request.addListener("error", function(mess) {
-      assert.ok(false, "Error getting subcolumn count: " + mess)              
-    });
-    request.send();
   }
 }
 
 function test_multiget_slice(assert, finished, test) {
   var column_parent =  {column_family:"TestSuperColumnFamily_UTF8_UTF8"};
-  var request = cassandra.create_request("multiget_slice", {
-    keyspace: keyspace, keys: [key1, key2], column_parent: column_parent, 
-    predicate: {slice_range:{start:'', finish:'', reversed:false, count:5}}
-  });
-  request.addListener("success", function(result) {
+  cassandra.multiget_slice(keyspace, [key1, key2], column_parent, 
+    {slice_range:{start:'', finish:'', reversed:false, count:5}},
+    ConsistencyLevel.ONE, function(err, result) {
+    if (err) {
+      assert.ok(false, "Error requesting multiget_slice: " + mess);
+      return;
+    }
     assert.ok(result[key1], "Result did not contain " + key1);
     assert.equal(2, result[key1].length);
     assert.equal(columns1[0].name, result[key1][0].name);
@@ -246,9 +234,5 @@ function test_multiget_slice(assert, finished, test) {
     logger.info("multiget_slice returned correct results.");
     finished();
   });
-  request.addListener("error", function(mess) {
-    assert.ok(false, "Error requesting multiget_slice: " + mess)              
-  });
-  request.send();
 }
 

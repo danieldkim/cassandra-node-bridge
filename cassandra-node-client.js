@@ -20,7 +20,14 @@ exports.create = function (port, host, logger) {
     }
   }
   
-  function call_proxy(method, arg_hash, event_emitter) {
+  function call_proxy(method, arg_hash, event_emitter_or_callback) {
+
+    var event_emitter, callback;
+    if (typeof event_emitter_or_callback == 'function') 
+      callback = event_emitter_or_callback;
+    else
+      event_emitter = event_emitter_or_callback;
+      
     var connection = require('net').createConnection(port, host)
     var result_data  = ''
     if (arg_hash) { 
@@ -38,11 +45,17 @@ exports.create = function (port, host, logger) {
     }
     
     connection.addListener("timeout", function() {
-      event_emitter.emit("error", "Connection to Cassandra server timed out.");
+      var error_mess = "Connection to Cassandra server timed out."
+      if (event_emitter) event_emitter.emit("error", error_mess);
+      else callback(new Error(mess));
     })
 
     connection.addListener("close", function(had_error) {
-      if (had_error) event_emitter.emit("error", "Error connecting to Cassandra server.");
+      if (had_error) {
+        var error_mess = "Error connecting to Cassandra server.";        
+        if (event_emitter) event_emitter.emit("error", error_mess);
+        else callback(new Error(mess));
+      }
     })
       
     connection.addListener("connect", function() {
@@ -80,9 +93,11 @@ exports.create = function (port, host, logger) {
         connection.end()
       }
       if (error) {
-        event_emitter.emit("error", error_mess)
+        if (event_emitter) event_emitter.emit("error", error_mess);
+        else callback(new Error(error_mess));
       } else {
-        event_emitter.emit("success", result);
+        if (event_emitter) event_emitter.emit("success", result);
+        else callback(null, result);
       }
     })
 
@@ -104,53 +119,74 @@ exports.create = function (port, host, logger) {
       return request;
     },
      
-/*    get_uuids: function(count, success_func, error_func) {
-      call_proxy("get_uuids", {count:count}, success_func, error_func)
+    get_uuids: function() {
+      var count, callback;
+      if (arguments.length == 1) {
+        count = 1;
+        callback = arguments[0];
+      } else {
+        count = arguments[0];
+        callback = arguments[1];
+      }
+      call_proxy("get_uuids", {count:count}, callback);
     },
     
-    get: function(keyspace, key, column_path, consistency_level, success_func, error_func) {
+    get: function(keyspace, key, column_path, consistency_level, callback) {
       call_proxy("get", 
                  {keyspace:keyspace, key: key, column_path: column_path, 
                   consistency_level: consistency_level},
-                 success_func, error_func)
+                 callback);
     },
     
-    get_slice : function(keyspace, key, column_parent, predicate, consistency_level, success_func, error_func) {
+    get_slice : function(keyspace, key, column_parent, predicate, consistency_level, callback) {
       call_proxy("get_slice", 
                   {keyspace:keyspace, key: key, column_parent: column_parent, 
                    predicate: predicate, consistency_level: consistency_level},
-                 success_func, error_func)
+                 callback);
     },    
     
-    multiget_slice: function(keyspace, keys, column_parent, predicate, consistency_level, success_func, error_func) {
+    multiget_slice: function(keyspace, keys, column_parent, predicate, consistency_level, callback) {
       call_proxy("multiget_slice", 
-                  {keyspace:keyspace, keys: key, column_parent: column_parent, 
+                  {keyspace:keyspace, keys: keys, column_parent: column_parent, 
                    predicate: predicate, consistency_level: consistency_level},
-                  success_func, error_func)
+                  callback);
     },
 
-    get_range_slices: function(keyspace, column_parent, predicate, range, consistency_level, success_func, error_func) {
-       call_proxy("get_range_slices", 
-                   {keyspace:keyspace, column_parent: column_parent, 
-                    predicate: predicate, range: range, 
-                    consistency_level: consistency_level},
-                  success_func, error_func)
+    get_count: function(keyspace, key, column_parent, consistency_level, callback) {
+      call_proxy("get_count", 
+                  {keyspace: keyspace, key: key, column_parent: column_parent, 
+                   consistency_level: consistency_level},
+                  callback);
+    },
+    
+    get_range_slices: function(keyspace, column_parent, predicate, range, consistency_level, callback) {
+      call_proxy("get_range_slices", 
+                 {keyspace:keyspace, column_parent: column_parent, 
+                  predicate: predicate, range: range, 
+                  consistency_level: consistency_level},
+                 callback);
      },
 
-    insert: function(keyspace, key, column_path, value, timestamp, consistency_level, success_func, error_func) {
-       call_proxy("insert", 
-                   {keyspace:keyspace, key: key, column_path: column_path, 
-                    value: value, timestamp: timestamp, 
-                    consistency_level: consistency_level},
-                  success_func, error_func)
+    insert: function(keyspace, key, column_path, value, timestamp, consistency_level, callback) {
+      call_proxy("insert", 
+                 {keyspace:keyspace, key: key, column_path: column_path, 
+                  value: value, timestamp: timestamp, 
+                  consistency_level: consistency_level},
+                 callback);
      },
 
-    batch_mutate: function(keyspace, mutation_map, consistency_level, success_func, error_func) {
-       call_proxy("batch_mutate", 
-                   {keyspace:keyspace, mutation_map: mutation_map, 
-                    consistency_level: consistency_level},
-                  success_func, error_func)
-     },
-*/    
+    batch_mutate: function(keyspace, mutation_map, consistency_level, callback) {
+      call_proxy("batch_mutate", 
+                 {keyspace:keyspace, mutation_map: mutation_map, 
+                  consistency_level: consistency_level},
+                 callback);
+    },
+    
+    remove: function(keyspace, key, column_path, timestamp, consistency_level, callback) {
+      call_proxy("remove", 
+                 {keyspace: keyspace, key: key, column_path: column_path, timestamp: timestamp,
+                  consistency_level: consistency_level},
+                 callback);
+    }
   }
 }

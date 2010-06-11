@@ -7,6 +7,8 @@ var logger_name = path_nodes[path_nodes.length-1].split('.')[0];
 var logger = log4js.getLogger(logger_name);
 logger.setLevel('INFO');
 var cassandra = require('cassandra-node-client').create(10000, '127.0.0.1', logger)
+var ConsistencyLevel = require('cassandra-node-client').ConsistencyLevel;
+
 var sys = require('sys')
 var _ = require('underscore')._
 var test_KS = "CassandraNodeBridgeTest"
@@ -22,15 +24,9 @@ insertTestsSuite.teardown(function(teardown_done) {
     return;
   }
   var mut_map = {test_key: {TestColumnFamily_UTF8:[{timestamp:test_col_ts, predicate:{column_names:["test_col"]}}]}}
-  var mutate_request = cassandra.create_request("batch_mutate", {
-    keyspace: test_KS, mutation_map: mut_map
-  }, { 
-    success: function() {
-        teardown_done();
-      },
-    error: function(mess) {
-     assert.ok(false, "Error trying to clean up after test_insert(): " + mess)
-    } 
+  cassandra.batch_mutate(test_KS, mut_map, ConsistencyLevel.ONE, function(err) {
+    if (err) assert.ok(false, "Error trying to clean up after test_insert(): " + mess);
+    teardown_done();
   })     
 });
 
@@ -66,16 +62,10 @@ columnOrderSuite.teardown(function(teardown_done) {
     mutations = [{timestamp:insert_ts, predicate:{column_names:column_names}}]
   }
   mut_map[key][column_parent.column_family] = mutations      
-  var mutate_request = cassandra.create_request("batch_mutate", {
-    keyspace:test_KS, mutation_map: mut_map
-  })
-  mutate_request.addListener("success", function() {
+  cassandra.batch_mutate(test_KS, mut_map, ConsistencyLevel.ONE, function(err) {
+    if (err) assert.ok(false, "Error trying to clean up after _test_column_order():" + mess);
     teardown_done();
-  })
-  mutate_request.addListener("error", function(mess) {
-    assert.ok(false, "Error trying to clean up after _test_column_order():" + mess)
-  })
-  mutate_request.send()
+  });
 });
 
 columnOrderSuite.addTests({
@@ -97,23 +87,26 @@ columnOrderSuite.addTests({
     test_column_order_UTF8_Long, 
 });
 
-require('async_testing').runSuites({  
+require('async_testing').runSuites({
   "Insert tests":  insertTestsSuite,
   "Column order tests":  columnOrderSuite
 });
 
 function test_insert(assert, finished, test) {
-  var request = cassandra.create_request("insert", {
-    keyspace: test_KS, key:"test_key", 
-    column_path: {column_family:"TestColumnFamily_UTF8",column:"test_col"}, 
-    value: "test_val", timestamp: "auto"
-  });
-  request.addListener("success", function(result) {
-    var get_request = cassandra.create_request("get", {
-      keyspace: test_KS, key: "test_key",
-      column_path: {column_family: "TestColumnFamily_UTF8", column: "test_col"}
-    });
-    get_request.addListener("success", function(col) {
+  cassandra.insert(test_KS, "test_key", 
+    {column_family:"TestColumnFamily_UTF8",column:"test_col"}, 
+    "test_val", "auto", ConsistencyLevel.ONE, function(err, result) {
+    if (err) {
+      assert.ok(false, "Error inserting: " + mess); 
+      return;
+    }
+    cassandra.get(test_KS, "test_key",
+    {column_family: "TestColumnFamily_UTF8", column: "test_col"},
+    ConsistencyLevel.ONE, function(err, col) {
+      if (err) {
+        assert.ok(false, "Error getting column: " + mess); 
+        return;
+      }
       test.test_col_ts = col.timestamp;
       logger.debug("test_col_ts:" + test.test_col_ts)
       assert.equal("test_col", col.name, "Unexpected column name")
@@ -121,15 +114,8 @@ function test_insert(assert, finished, test) {
       logger.info("test_insert() successful.")
       finished();
     });
-    get_request.addListener("error", function(mess) { 
-      assert.ok(false, "Error getting column: " + mess) 
-    });
-    get_request.send()
-  })
-  request.addListener("error", function(mess) { 
-    assert.ok(false, "Error inserting: " + mess) 
+
   });
-  request.send()
 }
 
 function test_column_order_UTF8(assert, finished, test) {  
@@ -247,22 +233,23 @@ function _test_column_order(key, column_parent, columns_insert_order, columns_ex
   var mut_map = {}
   mut_map[key] = {}
   mut_map[key][column_parent.column_family] = mutations
-  var mutate_request = cassandra.create_request("batch_mutate", {
-    keyspace: test_KS, mutation_map: mut_map
-  })
-  mutate_request.addListener("success", function(result) {
+  cassandra.batch_mutate(test_KS, mut_map, ConsistencyLevel.ONE, function(err, result) {
+    if (err) {
+      assert.ok(false, "Error adding columns: " + mess);
+      return; 
+    }
     assert.equal('number', typeof result, "batch_mutate did not return a number (timestamp)");
     var count = columns_insert_order.length
-    var get_slice_request = cassandra.create_request("get_slice",{
-      keyspace: test_KS, key: key, column_parent: column_parent, 
-      predicate: {
-        slice_range:{
-          start:columns_expected_order[0].name, finish:'', 
-          reversed:false, count:columns_insert_order.length
-        }
+    cassandra.get_slice(test_KS, key, column_parent, {
+      slice_range:{ 
+        start:columns_expected_order[0].name, finish:'', 
+        reversed:false, count:columns_insert_order.length
       }
-    })
-    get_slice_request.addListener("success", function(result) {
+    }, ConsistencyLevel.ONE, function(err, result) {
+      if (err) {
+        assert.ok(false, "Error getting test columns: " + mess);
+        return;
+      }
       test.insert_succeeded = true;
       assert.equal(columns_expected_order.length, result.length, 
                    "Did not get back expected number of columns.")
@@ -279,14 +266,6 @@ function _test_column_order(key, column_parent, columns_insert_order, columns_ex
       logger.info("_test_column_order: get_slice() returned uuid's in expected order.");
       finished();
     });
-    get_slice_request.addListener("error", function(mess) {
-      assert.ok(false, "Error getting test columns: " + mess)              
-    });
-    get_slice_request.send()
-  })
-  mutate_request.addListener("error", function(mess) {
-    assert.ok(false, "Error adding columns: " + mess)
   });
-  mutate_request.send()
   
 }

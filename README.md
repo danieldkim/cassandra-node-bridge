@@ -86,6 +86,10 @@ an object that looks like a **Deletion**, **Column**, or **SuperColumn**.
 
 #### Requests -- hash-based argument passing and event listeners
 
+**Note: This style of calling into CNB is now deprecated in favor of the single
+callback function approach (see Examples section), and will not be supported
+going forward.**
+
 To make a request with CNB, create a request object for the relevant API method
 with the relevant arguments. CNB accepts method arguments in a hash rather than
 using positional parameters:
@@ -183,31 +187,33 @@ specifying how many uuids to generate and returns them in a list.
 
 **get_slice**:
 
-    var request = cassandra.create_request("get_slice", {
-      keyspace: "MyKeyspace", key: "my_key", 
-      column_parent: {column_family:"MyColumnFamily"}, 
-      predicate: {column_names:["col1", "col2"]}, 
-      consistency_level: ConsistencyLevel.ONE
-    })
-    request.addListener("success", function(result) {
+    cassandra.get_slice("MyKeyspace", "my_key",
+      {column_family:"MyColumnFamily"}, {column_names:["col1", "col2"]},
+      ConsistencyLevel.ONE, function(err, result) {
+      if (err) {
+        sys.puts("Got an error: " + err);
+        return;
+      }
       result.forEach(function(col) {
         sys.puts("Got column " + column.name + ":" + column.value);
-      })      
+      })
     })
 
 **get_uuids**:
 
-    var request = cassandra.create_request("get_uuids")
-    request.addListener("success", function(result) {
+    cassandra.get_uuids(function(err, result) {
+      if (err) {
+        sys.puts("Got an error: " + err);
+        return;
+      }
       sys.puts("Got uuid: " + result[0]);
     })
 
 
 **batch_mutate**:
 
-    var request = cassandra.create_request("batch_mutate", {
-      keyspace: "MyKeyspace", 
-      mutation_map: {
+    cassandra.batch_mutate("MyKeyspace", 
+      {
         "my_key": {
           "MyColumnFamily": [ 
             {
@@ -224,11 +230,15 @@ specifying how many uuids to generate and returns them in a list.
             },            
           ]
         }
-      }      
-    })
-    request.addListener("success", function(result) {
+      }, ConsistencyLevel.ONE, function(err, result) {
+
+      if (err) {
+        sys.puts("Got an error: " + err);
+        return;
+      }
       sys.puts("Update succeeded. auto-generated timestamp: " + result);
-    })
+
+    });
 
 For more code examples check out the code in test/test-column-order.js and
 test/test-misc.js.
