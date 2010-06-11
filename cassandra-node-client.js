@@ -119,7 +119,7 @@ exports.create = function (port, host, logger) {
       return request;
     },
      
-    describe_keyspace: function(keyspace) {
+    describe_keyspace: function(keyspace, callback) {
       call_proxy("describe_keyspace", {keyspace: keyspace}, callback);
     },
     
