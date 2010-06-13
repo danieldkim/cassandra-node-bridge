@@ -8,6 +8,7 @@ require 'cgi'
 require 'json'
 require 'optparse'
 require 'simple_uuid'
+require 'pp'
 
 include CassandraThrift
 
@@ -490,7 +491,11 @@ class CassandraProxy < EventMachine::Connection
         method, query_str = data.split /[?$]/
         if query_str
           query_str.chomp!
-          args = CGI::parse query_str 
+          args = CGI::parse query_str
+          if @@verbose 
+            puts "args: "
+            pp args
+          end
         end
         self.class.send(method.chomp, args)
       rescue => e
