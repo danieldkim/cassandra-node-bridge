@@ -23,6 +23,8 @@ Columns](http://github.com/danieldkim/active-columns).
 * [simple_uuid](http://github.com/ryanking/simple_uuid)  0.0.2
 * Apache Cassandra 0.6.1
 * Node.js >0.1.91
+* [node-async-testing](http://github.com/bentomas/node-async-testing) 0.4.0
+  (optional, only needed to run tests)
 
 ## Usage
 
