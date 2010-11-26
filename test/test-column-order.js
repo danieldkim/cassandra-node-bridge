@@ -31,16 +31,16 @@ var insertTestsSuite = wrap({
   setup: function(test, done) {
     done();
   },
-  teardown: function(test, teardown_done) {
+  teardown: function(test, done) {
     var test_col_ts = test.test_col_ts;
     if (!test_col_ts) {
-      teardown_done();
+      done();
       return;
     }
     var mut_map = {test_key: {TestColumnFamily_UTF8:[{timestamp:test_col_ts, predicate:{column_names:["test_col"]}}]}}
     cassandra.batch_mutate(test_KS, mut_map, ConsistencyLevel.ONE, function(err) {
       if (err) test.ok(false, "Error trying to clean up after test_insert(): " + err);
-      teardown_done();
+      done();
     })     
   },
   suite: {
@@ -58,9 +58,9 @@ var columnOrderSuite = wrap({
   setup: function(test, done) {
     done();
   },
-  teardown: function(test, teardown_done) {
+  teardown: function(test, done) {
     if (!test.insert_succeeded) {
-      teardown_done();
+      done();
       return;
     }
     var key = test.key;
@@ -86,7 +86,7 @@ var columnOrderSuite = wrap({
     mut_map[key][column_parent.column_family] = mutations      
     cassandra.batch_mutate(test_KS, mut_map, ConsistencyLevel.ONE, function(err) {
       if (err) test.ok(false, "Error trying to clean up after _test_column_order():" + err);
-      teardown_done();
+      done();
     });
   },
   suite: {
